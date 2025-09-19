@@ -2,6 +2,7 @@
     "files.associations": {
         "cjson.h": "c",
         "log.h": "c",
-        "mqttclient.h": "c"
+        "mqttclient.h": "c",
+        "stdlib.h": "c"
     }
 }

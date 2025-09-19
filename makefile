@@ -12,4 +12,13 @@ cjsontest: test/cJSONtest.c $(cjson)
 	-./$@
 	-rm ./$@
 
-	
+mqtttest: test/mqtttest.c $(log)
+	-$(CC) -o $@ $^ -Iutils -lpaho-mqtt3c
+	-sudo ./$@
+	-rm ./$@
+
+app_common:=app/app_common.c app/app_common.h
+app_common_test: test/app_common_test.c $(app_common)
+	-$(CC) -o $@ $^ -Iapp
+	-./$@
+	-rm ./$@

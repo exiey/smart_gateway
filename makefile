@@ -22,3 +22,8 @@ app_common_test: test/app_common_test.c $(app_common)
 	-$(CC) -o $@ $^ -Iapp
 	-./$@
 	-rm ./$@
+
+buffer_test: test/app_buffer_test.c $(log)
+	-$(CC) -o $@ $^ -Iapp
+	-sudo ./$@
+	-rm ./$@

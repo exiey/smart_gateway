@@ -3,6 +3,7 @@
         "cjson.h": "c",
         "log.h": "c",
         "mqttclient.h": "c",
-        "stdlib.h": "c"
+        "stdlib.h": "c",
+        "app_buffer.h": "c"
     }
 }

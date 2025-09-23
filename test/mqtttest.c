@@ -8,176 +8,46 @@
 #include <MQTTClient.h>
 #include <assert.h>
 
-#include "logc/log.h"
+#include "/home/xhy/getway/app/app_mqtt.h"
+#include "/home/xhy/getway/utils/logc/log.h"
 
-#define ADDRESS "tcp://192.168.196.131:1883"
-#define CLIENTID "MqttTest"
-#define PUSH_TOPIC "test/MqttPushTest"
-#define PULL_TOPIC "test/MqttPullTest"
-#define QOS 1
-#define TIMEOUT 10000L
+static int receive_flag = 0;
 
-static MQTTClient client;
-static MQTTClient_connectOptions conn_opts = MQTTClient_connectOptions_initializer;
-static MQTTClient_deliveryToken deliveredtoken;
-
-// 消息发送回调
-void delivered(void *context, MQTTClient_deliveryToken dt)
+int receCallBack(char * str,int len)
 {
-    assert(context == NULL);
-    log_trace("Message with token value %d delivery confirmed", dt);
-    deliveredtoken = dt;
-}
-
-// 消息到达回调
-int msgarrvd(void *context, char *topicName, int topicLen, MQTTClient_message *message)
-{
-    assert(context == NULL);
-    log_trace("Message from topic %.*s arrived, content %.*s", strlen(topicName), topicName, message->payloadlen, (char *)message->payload);
-    // 消息处理完毕必须释放资源
-    MQTTClient_freeMessage(&message);
-    MQTTClient_free(topicName);
-    return 1;
-}
-
-// 链接丢失回调
-void connlost(void *context, char *cause)
-{
-    assert(context == NULL);
-    log_fatal("MQTT Connection lost because of %s, closing...", cause);
-    exit(EXIT_FAILURE);
-}
-
-void mqtt_close()
-{
-    // 断开连接
-    MQTTClient_disconnect(client, TIMEOUT);
-    // 清理客户端
-    MQTTClient_destroy(&client);
-}
-
-static void error_code_resolver(int error_code)
-{
-    switch (error_code)
-    {
-    case MQTTCLIENT_SUCCESS:
-        break;
-    case MQTTCLIENT_FAILURE:
-        log_fatal("MQTTClient_create failed: General failure\n");
-        break;
-    case MQTTCLIENT_BAD_PROTOCOL:
-        log_fatal("MQTTClient_create failed: Unsupported protocol\n");
-        break;
-    case MQTTCLIENT_BAD_MQTT_VERSION:
-        log_fatal("MQTTClient_create failed: Unsupported MQTT version\n");
-        break;
-    case MQTTCLIENT_BAD_UTF8_STRING:
-        log_fatal("MQTTClient_create failed: Invalid UTF-8 string\n");
-        break;
-    case MQTTCLIENT_NULL_PARAMETER:
-        log_fatal("MQTTClient_create failed: NULL parameter\n");
-        break;
-    default:
-        log_fatal("MQTTClient_create failed: Unknown error code %d\n", error_code);
-    }
-}
-
-int mqtt_init()
-{
-    int res;
-    // 创建MQTT客户端
-    if ((res = MQTTClient_create(&client, ADDRESS, CLIENTID, MQTTCLIENT_PERSISTENCE_NONE, NULL)) != MQTTCLIENT_SUCCESS)
-    {
-        log_fatal("MQTT Client creation fails");
-        error_code_resolver(res);
-
-        return -1;
-    }
-
-    // 设置回调函数
-    if ((res = MQTTClient_setCallbacks(client, NULL, connlost, msgarrvd, delivered)) != MQTTCLIENT_SUCCESS)
-    {
-        mqtt_close();
-        log_fatal("MQTT set callback fail");
-        error_code_resolver(res);
-
-        return -1;
-    }
-
-    // 连接MQTT服务器
-    conn_opts.connectTimeout = TIMEOUT;
-    conn_opts.keepAliveInterval = 20;
-    conn_opts.cleansession = 1;
-    if ((res = MQTTClient_connect(client, &conn_opts)) != MQTTCLIENT_SUCCESS)
-    {
-        mqtt_close();
-        log_fatal("MQTT connect fail");
-        error_code_resolver(res);
-
-        return -1;
-    }
-
-    // 订阅话题
-    if ((res = MQTTClient_subscribe(client, PULL_TOPIC, QOS)) != MQTTCLIENT_SUCCESS)
-    {
-        mqtt_close();
-        log_warn("MQTT subscribe fail");
-        error_code_resolver(res);
-
-        return -1;
-    }
+    receive_flag = 1;
+    assert(memcmp(str,"Hello world!",len));
     return 0;
 }
 
-int mqtt_send(void *ptr, int len)
-{
-    log_trace("Message: %s, len: %d", ptr, len);
-    int result = 0, res;
-    MQTTClient_message pubmsg = MQTTClient_message_initializer;
-    MQTTClient_deliveryToken token;
-
-    pubmsg.payload = ptr;
-    pubmsg.payloadlen = len;
-    pubmsg.qos = QOS;
-    pubmsg.retained = 0;
-    deliveredtoken = 0;
-
-    if ((res = MQTTClient_publishMessage(client, PUSH_TOPIC, &pubmsg, &token)) != MQTTCLIENT_SUCCESS)
-    {
-        log_warn("Message send fail");
-        error_code_resolver(res);
-
-        result = -1;
-    }
-    else
-    {
-        log_info("Message send success");
-        error_code_resolver(res);
-
-        result = 0;
+int main() {
+    // 1. 初始化MQTT，必须检查返回值
+    int init_ret = app_mqtt_init();
+    if (init_ret != 0) {
+        log_error("MQTT init failed! ret: %d", init_ret);
+        return -1; // 初始化失败直接退出，避免后续错误
     }
 
-    log_info("token is %d", token);
-    while (token != deliveredtoken)
-        ;
-    log_info("message has been acknowledged~, deliveredtoken is %d", deliveredtoken);
+    // 2. 注册回调（此时回调函数参数已改为void*，无警告）
+    app_mqtt_registerRecvCallback(receCallBack);
 
-    return result;
-}
+    // 3. 发送消息（你的现有逻辑）
+    char *msg = "hello world!";
+    app_mqtt_send(msg, strlen(msg));
 
-int main()
-{
-    mqtt_init();
-
-    char buf[128];
-
-    while (1)
-    {
-        memset(buf, 0, 128);
-        read(0, buf, 128);
-        log_trace("Recieved message from console: %s", buf);
-        mqtt_send(buf, strlen(buf));
+    // 4. 关键：增加「等待消息接收」的逻辑
+    // 原因：MQTT接收是异步的（回调在底层线程执行），主线程跑得太快，断言会提前执行
+    int wait_cnt = 0;
+    while (receive_flag == 0 && wait_cnt < 10) { // 等待10秒（每1秒检查一次）
+        log_trace("Waiting for message... (%d/10)", wait_cnt);
+        sleep(1); // 暂停1秒，给回调线程时间执行
+        wait_cnt++;
     }
 
-    mqtt_close();
+    // 5. 断言检查（此时若收到消息，receive_flag已设为1）
+    assert(receive_flag == 1);
+
+    // 6. 清理资源
+    app_mqtt_close();
+    return 0;
 }

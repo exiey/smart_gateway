@@ -4,6 +4,10 @@
         "log.h": "c",
         "mqttclient.h": "c",
         "stdlib.h": "c",
-        "app_buffer.h": "c"
+        "app_buffer.h": "c",
+        "app_message.h": "c",
+        "pthread.h": "c",
+        "mqueue.h": "c",
+        "app_device.h": "c"
     }
 }
